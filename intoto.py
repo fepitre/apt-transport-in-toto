@@ -683,24 +683,30 @@ def _intoto_verify(message_data):
         in_toto.verifylib.in_toto_verify(layout, layout_keys)
 
     except Exception as e:
-        error_msg = ("In-toto verification for '{}' failed, reason was: {}"
-                     .format(filename, str(e)))
+        if isinstance(e, in_toto.exceptions.RuleVerificationError):
+            error_msg = ("In-toto verification for '{}':"
+                         " failed to validate checksums!".format(filename))
+        elif isinstance(e, in_toto.exceptions.LinkNotFoundError):
+            error_msg = ("In-toto verification for '{}':"
+                         " link not found!".format(filename))
+        else:
+            error_msg = ("In-toto verification for '{}' failed,"
+                         " reason was: {}".format(filename, e))
         logger.error(error_msg)
 
-        if (isinstance(e, in_toto.exceptions.LinkNotFoundError) and
-                global_info["config"].get("NoFail")):
-            logger.warning("The 'NoFail' setting was configured,"
-                           " installation continues.")
-
+        if isinstance(e, in_toto.exceptions.LinkNotFoundError) and \
+                global_info["config"].get("NoFail"):
+            logger.warning(
+                "In-toto: the 'NoFail' setting was configured,"
+                " installation continues...")
         else:
             # Notify apt about the failure ...
             notify_apt(URI_FAILURE, error_msg, uri)
             # ... and do not relay http's URI Done
             # (so that apt does not install it)
             return False
-
     else:
-        logger.info("In-toto verification for '{}' passed! :)".format(filename))
+        logger.info("In-toto verification for '{}' passed!".format(filename))
 
     finally:
         os.chdir(cached_cwd)
